@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2026 首爾實戰導遊 v4.9</title>
+    <style>
+        :root { --primary: #2C3E50; --success: #27AE60; --transit: #7F8C8D; --bg: #ECF0F1; --card: #FFFFFF; --accent: #E74C3C; --wish: #9B59B6; --klook: #E67E22; --active-day: #3498DB; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding-bottom: 50px; -webkit-tap-highlight-color: transparent; }
+        
+        /* 頂部 Header：優化標題與 SOS 佈局 */
+        .app-bar { position: sticky; top: 0; z-index: 1100; background: var(--primary); color: white; height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .app-title { font-size: 1.1em; font-weight: 700; letter-spacing: 0.5px; }
+        .sos-btn { background: var(--accent); color: white; padding: 6px 12px; border-radius: 18px; font-size: 0.8em; font-weight: 800; border: 1.5px solid rgba(255,255,255,0.8); display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; }
+
+        /* 五天全顯導航：不需滑動 */
+        .nav-container { position: sticky; top: 60px; z-index: 1050; background: white; padding: 8px 5px; border-bottom: 1px solid #D5DBDB; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+        .day-btn { padding: 10px 0; border-radius: 8px; border: none; background: #F4F6F7; color: #7F8C8D; font-weight: bold; font-size: 0.85em; text-align: center; }
+        .day-btn.active { background: var(--active-day); color: white; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+
+        /* SOS 側邊欄 */
+        .sidebar { position: fixed; right: -300px; top: 0; width: 300px; height: 100%; background: white; z-index: 2000; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: -2px 0 15px rgba(0,0,0,0.3); overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        .sidebar.open { right: 0; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 1999; backdrop-filter: blur(2px); }
+        .sos-cat { font-size: 0.85em; color: var(--active-day); font-weight: 800; margin: 18px 0 8px 0; border-bottom: 2px solid var(--active-day); padding-bottom: 3px; display: block; }
+        .help-card { background: #FBFCFC; border: 1px solid #D5DBDB; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+        .kr-txt { font-size: 1.1em; font-weight: bold; color: #2C3E50; display: block; margin-top: 5px; }
+
+        /* 行程流 */
+        .timeline { padding: 15px; position: relative; margin-top: 5px; }
+        .timeline::before { content: ''; position: absolute; left: 30px; top: 0; bottom: 0; width: 2px; background: #BDC3C7; z-index: 0; }
+        .node { position: relative; z-index: 1; margin-bottom: 25px; }
+        .icon-pin { position: absolute; left: 16px; width: 30px; height: 30px; background: white; border: 2.5px solid var(--active-day); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        .card { background: var(--card); border-radius: 15px; padding: 16px; margin-left: 45px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-top: 4px solid var(--active-day); }
+        .transit-card { background: #F2F4F4; border-radius: 12px; padding: 12px; margin: 15px 0 15px 45px; border: 1.5px dashed #BDC3C7; }
+        .time-badge { background: #EBF5FB; color: var(--active-day); padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight: 800; }
+        
+        .info-box { background: #F9FBFC; border-left: 4px solid var(--active-day); padding: 12px; margin: 12px 0; font-size: 0.9em; line-height: 1.5; color: #34495E; border-radius: 4px; }
+        
+        .carousel { display: flex; overflow-x: auto; gap: 12px; padding: 10px 0; scrollbar-width: none; }
+        .carousel::-webkit-scrollbar { display: none; }
+        .slide-item { flex: 0 0 85%; background: white; border: 1px solid #D5DBDB; border-radius: 12px; padding: 12px; box-sizing: border-box; }
+        .slide-item.taxi { border: 1.5px solid var(--success); background: #F4FFF9; }
+
+        .btn-copy { display: block; width: 100%; background: var(--success); color: white; text-align: center; padding: 14px; border-radius: 10px; font-weight: bold; border: none; margin-top: 10px; font-size: 1em; box-shadow: 0 3px 6px rgba(39,174,96,0.3); }
+        .btn-klook { display: block; width: 100%; background: var(--klook); color: white; text-align: center; padding: 12px; border-radius: 10px; font-weight: bold; text-decoration: none; margin-bottom: 12px; font-size: 0.95em; box-shadow: 0 3px 6px rgba(230,126,34,0.3); }
+        .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 25px; display: none; z-index: 3000; font-weight: bold; }
+        .price { color: #C0392B; font-weight: 800; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+
+<div class="app-bar">
+    <div class="app-title">首爾親子行 2026</div>
+    <div class="sos-btn" onclick="toggleSidebar()">⭕ SOS 援助</div>
+</div>
+
+<div class="nav-container" id="dayNav">
+    <button class="day-btn active" onclick="updatePage(1)">Day 1</button>
+    <button class="day-btn" onclick="updatePage(2)">Day 2</button>
+    <button class="day-btn" onclick="updatePage(3)">Day 3</button>
+    <button class="day-btn" onclick="updatePage(4)">Day 4</button>
+    <button class="day-btn" onclick="updatePage(5)">Day 5</button>
+</div>
+
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+<div class="sidebar" id="sidebar">
+    <h3 style="margin-top: 0; color: var(--accent);">🆘 緊急溝通字卡</h3>
+    
+    <span class="sos-cat">👶 育兒必備</span>
+    <div class="help-card"><div>請問育嬰室在哪？</div><span class="kr-txt">수유실이 어디에 있나요?</span></div>
+    <div class="help-card"><div>可以加熱副食品嗎？</div><span class="kr-txt">이유식을 데워주실 수 있나요?</span></div>
+    <div class="help-card"><div>有提供小孩專用椅嗎？</div><span class="kr-txt">아기 의자가 있나요?</span></div>
+
+    <span class="sos-cat">🍴 用餐要求</span>
+    <div class="help-card"><div>請做成完全不辣。</div><span class="kr-txt">전혀 맵지 않게 해주세요.</span></div>
+    <div class="help-card"><div>請給我一些飲用水。</div><span class="kr-txt">물 좀 주시겠어요?</span></div>
+
+    <span class="sos-cat">🚕 交通/尋路</span>
+    <div class="help-card"><div>哪裡有電梯？(推車用)</div><span class="kr-txt">엘리베이터가 어디에 있나요?</span></div>
+    <div class="help-card"><div>計程車站點在哪裡？</div><span class="kr-txt">택시 승강장이 어디인가요?</span></div>
+
+    <span class="sos-cat">🏪 購物/緊急</span>
+    <div class="help-card"><div>可以辦理退稅嗎？</div><span class="kr-txt">택스 리펀드 되나요?</span></div>
+    <div class="help-card"><div>最近的藥局在哪裡？</div><span class="kr-txt">가장 가까운 약국이 어디인가요?</span></div>
+</div>
+
+<div class="timeline" id="appContent"></div>
+<div id="toast" class="toast">地址已複製成功！📋</div>
+
+<script>
+const homeKr = "서울특별시 서대문구 신촌로11길";
+const shop = { wow: "💳", olive: "🌿", daiso: "🔴", lotte: "🛒" };
+const klookLink = "https://www.klook.com/zh-TW/my_bookings/";
+
+const data = {
+    1: [
+        { type: "point", time: "14:30-16:30", title: "金浦機場抵達 " + shop.wow + shop.lotte, desc: "💡 重點：GF層有 Salomon。領取 Wowpass 並進行首筆儲值。", wish: "Salomon (機場店 GF)", addr: "김포국제공항" },
+        { type: "transit", from: "機場", to: "民宿", options: [
+            { method: "AREX 快線", time: "20m", cost: "₩2,800", desc: "直達弘大入口站。", detail: "2人成人價。推車建議走4號出口電梯。" },
+            { method: "計程車 (Uber)", time: "25m", cost: "₩15,000", copy: homeKr, desc: "直達西大門民宿。", detail: "行李多時首選，省去轉乘體力。" }
+        ]},
+        { type: "point", time: "18:00-21:30", title: "弘大商圈 " + shop.wow + shop.olive + shop.daiso, desc: "💡 重點：全首爾最大大創。Kakao Friends。", addr: "홍대입구역", food: [
+            {name:"豚壽百", detail:"主選：豬肉湯飯不辣，拌飯首選。", addr:"돈수백 홍대점"},
+            {name:"本粥", detail:"備選：營養鹹粥，溫和適合小孩。", addr:"본죽 홍대역점"},
+            {name:"神仙雪濃湯", detail:"備選：牛骨濃湯，口味穩定。", addr:"신선설농탕 홍대점"}
+        ]},
+        { type: "transit", from: "弘大", to: "民宿", options: [{ method: "步行", time: "10m", cost: "Free", desc: "漫步回西大門民宿。" }] }
+    ],
+    2: [
+        { type: "point", time: "09:30-10:00", title: "民宿出發", desc: "💡 重點：準備前往永登浦，檢查推車備品。", addr: homeKr },
+        { type: "transit", from: "民宿", to: "Zoolung", options: [
+            { method: "計程車", time: "20m", cost: "₩12,000", copy: "주렁주렁 영등포", desc: "直達時光廣場門口。" },
+            { method: "地鐵 2 線", time: "35m", cost: "₩2,800", desc: "弘大入口 ➔ 永登浦。" }
+        ]},
+        { type: "point", time: "10:00-13:30", title: "Zoolung Zoolung " + shop.wow + shop.olive, desc: "💡 重點：時光廣場 3F 有 Salomon。必看餵食秀。", addr: "주렁주렁 영등포", klook: true, food: [
+            {name:"Rolling Pasta", detail:"主選：不辣培根義麵。出餐快。", addr:"롤링파스타 영등포"},
+            {name:"丁泰豐", detail:"備選：小籠包炒飯，穩定度高。", addr:"딘타이펑 영등포점"},
+            {name:"時光廣場美食街", detail:"備選：地下層多樣選擇，推車好停。", addr:"타임스퀘어 푸드코트"}
+        ]},
+        { type: "transit", from: "永登浦", to: "漢江公園", options: [{ method: "計程車", time: "10m", cost: "₩6,000", copy: "여의도 한강공원" }] },
+        { type: "point", time: "13:30-16:30", title: "汝矣島漢江公園", desc: "💡 重點：放電行程。自助泡麵機體驗。", addr: "여의도 한강공원" },
+        { type: "transit", from: "漢江", to: "現代百貨", options: [{ method: "步行", time: "10m", cost: "Free" }] },
+        { type: "point", time: "16:30-19:30", title: "現代百貨 " + shop.wow + shop.olive + shop.lotte, desc: "💡 重點：5F Lego，4F Salomon。", wish: "Lego 皮卡丘 / Salomon (4F)", addr: "더현대 서울", food: [
+            {name:"百貨食品館", detail:"主選：首爾最強美食街。", addr:"더현대 서울 식품관"},
+            {name:"孔陵一隻雞", detail:"備選：清甜雞湯粥。", addr:"공릉닭한마리 여의도점"},
+            {name:"Sola Sola", detail:"備選：店員代烤燒肉。", addr:"솔라솔라 더현대"}
+        ]},
+        { type: "transit", from: "百貨", to: "民宿", options: [{ method: "計程車", time: "25m", cost: "₩14,000", copy: homeKr }] }
+    ],
+    3: [
+        { type: "point", time: "09:30-10:00", title: "民宿出發", desc: "💡 重點：江南區路程遠，建議計程車。", addr: homeKr },
+        { type: "transit", from: "民宿", to: "COEX", options: [{ method: "計程車", time: "45m", cost: "₩25,000", copy: "코엑스 아쿠아리움" }, { method: "地鐵 2 線", time: "55m", cost: "₩3,200" }] },
+        { type: "point", time: "10:00-13:00", title: "COEX 水族館 " + shop.wow + shop.olive, desc: "💡 重點：必看海底隧道。", addr: "코엑스 아쿠아리움", klook: true, food: [
+            {name:"Mall 美食街", detail:"主選：韓式炸醬麵糖醋肉。", addr:"코엑스몰 푸드코트"},
+            {name:"P.F. Chang's", detail:"備選：美式中餐空間大。", addr:"피에프창 코엑스몰점"},
+            {name:"光化門石烤肉", detail:"備選：不辣烤肉肉質嫩。", addr:"광화문석갈비 코엑스"}
+        ]},
+        { type: "transit", from: "水族館", to: "圖書館", options: [{ method: "步行", time: "5m", cost: "Free" }] },
+        { type: "point", time: "13:00-14:30", title: "星空圖書館 " + shop.daiso, desc: "💡 重點：B1 有 Lego/Salomon。", wish: "MGSD 命運 (B2) / Salomon (B1)", addr: "별마당 도서관" },
+        { type: "transit", from: "江南", to: "南山", options: [{ method: "計程車", time: "30m", cost: "₩18,000", copy: "N서울타워 케이블카" }] },
+        { type: "point", time: "15:00-18:00", title: "南山塔 + 樂天 " + shop.lotte, desc: "💡 重點：纜車看日落。樂天 6F Salomon。", addr: "N서울타워" },
+        { type: "transit", from: "南山", to: "慶生晚餐", options: [{ method: "計程車", time: "25m", cost: "₩13,000", copy: "미쓰족발 홍地본점" }] },
+        { type: "point", time: "18:30-20:30", title: "慶生晚餐：豬腳小姐", desc: "💡 重點：1 歲生日大餐。蒜味不辣。", addr: "미쓰족발 홍대본점", food: [
+            {name:"豬腳小姐", detail:"主選：蒜香軟Q。小孩愛吃皮。", addr:"미쓰족발 홍대본점"},
+            {name:"小豬存錢筒", detail:"備選：石頭烤肉名店。", addr:"수정옥돌소금구이"},
+            {name:"橋村炸雞", detail:"備選：蜂蜜口味首選。", addr:"교촌치킨 홍대점"}
+        ]},
+        { type: "transit", from: "弘大", to: "民宿", options: [{ method: "步行", time: "10m", cost: "Free" }] }
+    ],
+    4: [
+        { type: "point", time: "09:30-10:00", title: "民宿出發", desc: "💡 重點：準備全日戶外大行程。", addr: homeKr },
+        { type: "transit", from: "民宿", to: "大公園", options: [{ method: "計程車", time: "45m", cost: "₩22,000", copy: "서울대공員" }, { method: "地鐵 2+4 線", time: "60m", cost: "₩3,400" }] },
+        { type: "point", time: "10:00-14:30", title: "首爾大公園動物園", desc: "💡 重點：天空纜車全景。", addr: "서울대공원", klook: true, food: [
+            {name:"園內美食廣場", detail:"主選：炸醬麵排骨湯。", addr:"서울대공원 식당"},
+            {name:"便利商店", detail:"備選：飯捲飯糰速充。", addr:"편의점"},
+            {name:"Rose Pasta", detail:"備選：園區入口西餐。", addr:"로즈파스타"}
+        ]},
+        { type: "transit", from: "大公園", to: "明洞", options: [{ method: "地鐵 4 線", time: "35m", cost: "₩2,800" }, { method: "計程車", time: "30m", cost: "₩18,000", copy: "명동역" }] },
+        { type: "point", time: "15:30-17:30", title: "明洞商圈 " + shop.wow + shop.olive + shop.daiso, desc: "💡 重點：Salomon (乙支路站 7F)。", addr: "명동거리", food: [
+            {name:"明洞餃子", detail:"主選：刀切麵餛飩必吃。", addr:"명동교자 본점"},
+            {name:"神仙雪濃湯", detail:"備選：清甜濃湯暖胃。", addr:"신선설농탕 명동점"},
+            {name:"全州中央會館", detail:"備選：石鍋拌飯名店。", addr:"전주중앙회관 명동"}
+        ]},
+        { type: "transit", from: "明洞", to: "T1 Base Camp", options: [{ method: "計程車", time: "20m", cost: "₩10,000", copy: "T1 베이스캠프" }] },
+        { type: "point", time: "17:30-19:30", title: "T1 Base Camp " + shop.olive, desc: "💡 重點：爸爸朝聖 SKT T1。", addr: "T1 베이스캠프" },
+        { type: "transit", from: "弘大", to: "民宿", options: [{ method: "計程車", time: "10m", cost: "₩6,000", copy: homeKr }] }
+    ],
+    5: [
+        { type: "point", time: "09:00-11:30", title: "望遠市場 " + shop.wow + shop.olive, desc: "💡 重點：必買草莓。炸雞丁。", addr: "망원市場", food: [
+            {name:"Kkyus 炸雞", detail:"主選：炸雞丁不辣。", addr:"큐스닭강정"},
+            {name:"市場可樂餅", detail:"備選：現炸各種口味。", addr:"망원수제고로케"},
+            {name:"望遠牛肉湯", detail:"備選：清淡牛肉拌飯。", addr:"망원동소고기국밥"}
+        ]},
+        { type: "transit", from: "市場", to: "民宿", options: [{ method: "計程車", time: "10m", cost: "₩6,000", copy: homeKr }] },
+        { type: "point", time: "11:30-12:30", title: "民宿：最後整理", desc: "💡 重點：取行李前往機場。", addr: homeKr },
+        { type: "transit", from: "民宿", to: "機場", options: [{ method: "計程車", time: "25m", cost: "₩16,000", copy: "김포국제공항" }, { method: "AREX", time: "20m", cost: "₩2,800" }] },
+        { type: "point", time: "13:50 後", title: "金浦機場回程 " + shop.wow, desc: "💡 重點：平安返家。", addr: "김포국제공항" }
+    ]
+};
+
+function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    const ol = document.getElementById('overlay');
+    const open = sb.classList.toggle('open');
+    ol.style.display = open ? 'block' : 'none';
+}
+
+function copyAddr(addr) {
+    if(!addr) return;
+    navigator.clipboard.writeText(addr).then(() => {
+        const t = document.getElementById('toast');
+        t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 2000);
+    });
+}
+
+function updatePage(day) {
+    const nav = document.getElementById('dayNav').querySelectorAll('.day-btn');
+    nav.forEach((b, i) => b.classList.toggle('active', i === day-1));
+    const content = document.getElementById('appContent');
+    const dayData = data[day] || [];
+    content.innerHTML = dayData.map(item => {
+        if(item.type === "point") {
+            return `
+                <div class="node">
+                    <div class="icon-pin">📍</div>
+                    <div class="card">
+                        <span class="time-badge">🕒 ${item.time || ''}</span>
+                        <div style="font-size:1.1em; font-weight:bold; margin-top:8px;">${item.title}</div>
+                        <div class="info-box">${item.desc}</div>
+                        ${item.wish ? `<div style="color:var(--wish); font-size:0.85em; font-weight:bold;">🎯 願望：${item.wish}</div>` : ''}
+                        ${item.klook ? `<a href="${klookLink}" target="_blank" class="btn-klook">🎟️ 開啟 Klook 憑證 (快速掃描)</a>` : ''}
+                        ${item.food ? `
+                            <span style="font-weight:bold; font-size:0.85em; color:#555; margin-top:10px; display:block;">🍴 餐廳三選一 (滑動)</span>
+                            <div class="carousel">
+                                ${item.food.map(f => `<div class="slide-item" onclick="copyAddr('${f.addr}')"><b>${f.name}</b><br><small>${f.detail}</small><br><small style="color:var(--success); font-weight:bold;">📋 複製地址</small></div>`).join('')}
+                            </div>
+                        ` : ''}
+                        <button class="btn-copy" onclick="copyAddr('${item.addr}')">複製目的地 Naver 地址</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="node">
+                    <div class="icon-pin" style="border-color:var(--transit); color:var(--transit);">🚌</div>
+                    <div class="transit-card">
+                        <div style="font-size:0.85em; font-weight:bold; color:#666; margin-bottom:8px;">移動：${item.from} ➔ ${item.to}</div>
+                        <div class="carousel">
+                            ${(item.options || []).map(opt => `
+                                <div class="slide-item ${opt.method && opt.method.includes('計程車') ? 'taxi' : ''}" onclick="copyAddr('${opt.copy || ''}')">
+                                    <div style="display:flex; justify-content:space-between;"><span style="font-weight:bold; color:var(--active-day);">${opt.method}</span><span class="price">${opt.cost}</span></div>
+                                    <div style="font-size:0.8em; margin-top:4px;">⏳ ${opt.time} - ${opt.desc}</div>
+                                    ${opt.copy ? `<div style="font-size:0.7em; color:var(--success); margin-top:5px; font-weight:bold;">📋 點擊複製 (供叫車)</div>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }).join('');
+    window.scrollTo(0,0);
+}
+updatePage(1);
+</script>
+</body>
+</html>
