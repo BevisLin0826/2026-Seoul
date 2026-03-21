@@ -57,11 +57,15 @@
         .icon-pin { position: absolute; left: 16px; width: 30px; height: 30px; background: white; border: 2.5px solid var(--active-day); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; }
         
         /* 行程卡與交通卡樣式 */
+         .timeline { padding: 15px; position: relative; }
+        .timeline::before { content: ''; position: absolute; left: 30px; top: 0; bottom: 0; width: 2px; background: #BDC3C7; z-index: 0; }
+        .node { position: relative; z-index: 1; margin-bottom: 30px; }
+        .icon-pin { position: absolute; left: 16px; width: 30px; height: 30px; background: white; border: 2.5px solid var(--active-day); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; }
         .card { background: var(--card); border-radius: 15px; padding: 16px; margin-left: 45px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-top: 4px solid var(--active-day); }
-        .transit-card { background: #F2F4F4; border-radius: 12px; padding: 12px; margin: 15px 0 15px 45px; border: 1.5px dashed #BDC3C7; cursor: pointer; }
+        .transit-card { background: #F2F4F4; border-radius: 12px; padding: 12px; margin: 15px 0 15px 45px; border: 1.5px dashed #BDC3C7; }
         .time-badge { background: #EBF5FB; color: var(--active-day); padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight: 800; }
         .info-box { background: #F9FBFC; border-left: 4px solid var(--active-day); padding: 12px; margin: 12px 0; font-size: 0.9em; line-height: 1.5; color: #34495E; border-radius: 4px; }
-        
+
         /* 餐廳與移動選項的橫向滑動區 */
         .carousel { display: flex; overflow-x: auto; gap: 12px; padding: 10px 0; scrollbar-width: none; }
         .carousel::-webkit-scrollbar { display: none; }
@@ -326,30 +330,42 @@ function updatePage(day) {
     nav.forEach((b, i) => b.classList.toggle('active', i === day-1));
     const content = document.getElementById('appContent');
     const dayData = data[day] || [];
-    
     content.innerHTML = dayData.map(item => {
         if(item.type === "point") {
             return `
-                <div class="node"><div class="icon-pin">📍</div><div class="card">
-                    <span class="time-badge">🕒 ${item.time || ''}</span>
-                    <div style="font-weight:bold; margin-top:8px;">${item.title || ''}</div>
-                    <div class="info-box">${item.desc || ''}</div>
-                    ${item.klook ? `<a href="${klookLink}" target="_blank" class="btn-klook">🎟️ 開啟 Klook 憑證</a>` : ''}
-                    <button class="btn-copy" onclick="copyText('${item.addr}')">複製目的地 Naver 地址</button>
-                </div></div>`;
+                <div class="node">
+                    <div class="icon-pin">📍</div>
+                    <div class="card">
+                        <span class="time-badge">🕒 ${item.time || '行程時間'}</span>
+                        <div style="font-size:1.1em; font-weight:bold; margin-top:8px;">${item.title || ''}</div>
+                        <div class="info-box">${item.desc || ''}</div>
+                        ${item.wish ? `<div style="color:var(--wish); font-size:0.85em; font-weight:bold;">🎯 願望：${item.wish}</div>` : ''}
+                        ${item.klook ? `<a href="${klookLink}" target="_blank" class="btn-klook">🎟️ 開啟 Klook 憑證</a>` : ''}
+                        ${item.food ? `
+                            <span style="font-weight:bold; font-size:0.8em; color:#555; margin-top:10px; display:block;">🍴 餐廳三選一 (左右滑動)</span>
+                            <div class="carousel">${item.food.map(f => `<div class="slide-item" onclick="copyText('${f.addr}')"><b>${f.name || ''}</b><br><small>${f.detail || '點擊複製'}</small></div>`).join('')}</div>
+                        ` : ''}
+                        <button class="btn-copy" onclick="copyText('${item.addr}')">複製目的地 Naver</button>
+                    </div>
+                </div>`;
         } else {
-            // 交通卡片：增加點擊複製第一選項的目的地功能
-            const firstOpt = item.options ? item.options[0] : {copy:''};
             return `
-                <div class="node"><div class="icon-pin" style="border-color:var(--transit);">🚌</div>
-                <div class="transit-card" onclick="copyText('${firstOpt.copy || ''}')">
-                    <div style="font-size:0.85em; font-weight:bold; color:#666;">移動：${item.from || ''} ➔ ${item.to || ''}</div>
-                    <div class="carousel">${(item.options || []).map(opt => `
-                        <div class="slide-item ${opt.method && opt.method.includes('計程車') ? 'taxi' : ''}">
-                            <div style="display:flex; justify-content:space-between;"><b>${opt.method || ''}</b><span style="color:var(--accent);">${opt.cost || ''}</span></div>
-                            <small>${opt.desc || '點擊複製目的地'}</small>
-                        </div>`).join('')}</div>
-                </div></div>`;
+                <div class="node">
+                    <div class="icon-pin" style="border-color:var(--transit); color:var(--transit);">🚌</div>
+                    <div class="transit-card" onclick="copyText('${item.options[0].copy || ''}')">
+                        <div style="font-size:0.85em; font-weight:bold; color:#666; margin-bottom:8px;">移動：${item.from || ''} ➔ ${item.to || ''}</div>
+                        <div class="carousel">
+                            ${(item.options || []).map(opt => `
+                                <div class="slide-item ${opt.method && opt.method.includes('計程車') ? 'taxi' : ''}" onclick="copyText('${opt.copy || ''}')">
+                                    <div style="display:flex; justify-content:space-between;"><span style="font-weight:bold; color:var(--active-day);">${opt.method || ''}</span><span style="color:#C0392B; font-weight:bold;">${opt.cost || ''}</span></div>
+                                    <div style="font-size:0.8em; margin-top:4px;">⏳ ${opt.time || ''} - ${opt.desc || ''}</div>
+                                    <div style="font-size:0.75em; color:#777; margin-top:4px;">${opt.detail || '點擊複製目的地。'}</div>
+                                    ${opt.copy ? `<div style="font-size:0.7em; color:var(--success); margin-top:5px; font-weight:bold;">📋 點擊複製目的地</div>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>`;
         }
     }).join('');
     window.scrollTo(0,0);
